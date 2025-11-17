@@ -1,7 +1,6 @@
 Flask
+gunicorn
 pandas
 requests
 beautifulsoup4
 lxml
-gunicorn
-Flask-Cors
