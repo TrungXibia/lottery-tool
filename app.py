@@ -6,15 +6,25 @@ from collections import Counter
 from datetime import datetime
 from io import StringIO
 import json
+import os
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 
 # Cấu hình ứng dụng Flask
-app = Flask(__name__)
-CORS(app) # Cho phép truy cập từ tên miền khác (Cloudflare)
+app = Flask(__name__, static_folder='.')
+CORS(app)
 
 warnings.filterwarnings("ignore", category=FutureWarning)
+
+# --- Serve static files ---
+@app.route('/')
+def serve_index():
+    return send_from_directory('.', 'index.html')
+
+@app.route('/<path:path>')
+def serve_static(path):
+    return send_from_directory('.', path)
 
 # --- Các hàm logic cốt lõi ---
 
@@ -82,10 +92,6 @@ def fetch_data_from_source(fetch_type='month'):
 
 # --- API Endpoints ---
 
-@app.route('/')
-def home():
-    return "Backend API is running."
-
 @app.route('/fetch_data', methods=['POST'])
 def api_fetch_data():
     data = request.get_json()
@@ -112,9 +118,6 @@ def api_run_analysis():
     num_patterns = int(data.get('num_patterns', 2))
     exact_match = data.get('exact_match', False)
     selected_month_col = data.get('month_col')
-    
-    # ... (Toàn bộ logic phân tích cầu được sao chép và dán vào đây) ...
-    # (Do logic này dài và không thay đổi, tôi sẽ tóm tắt, bạn chỉ cần copy từ file app.py cũ)
     
     patterns = []
     pattern_months = set()
@@ -208,4 +211,5 @@ def api_run_analysis():
     })
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
