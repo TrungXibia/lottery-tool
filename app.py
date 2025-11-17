@@ -7,70 +7,29 @@ from datetime import datetime
 from io import StringIO
 import json
 
-from flask import Flask, jsonify, request
+# Sửa lại import: Thêm send_from_directory
+from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 
-# Cấu hình ứng dụng Flask
 app = Flask(__name__)
 CORS(app) 
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
-# --- Các hàm logic cốt lõi (Giữ nguyên) ---
+# === SỬA LẠI CÁCH PHỤC VỤ GIAO DIỆN ===
 
-def _get_month_url():
-    return 'https://congcuxoso.com/MienBac/DacBiet/PhoiCauDacBiet/PhoiCauThang5So.aspx'
-
-def _get_year_url():
-    return 'https://congcuxoso.com/MienBac/DacBiet/PhoiCauDacBiet/PhoiCauNam5So.aspx'
-    
-def _clean_df(df: pd.DataFrame) -> pd.DataFrame:
-    def fmt(v):
-        s = str(v).strip()
-        if not s or s == '-----': return ''
-        if s.endswith('.0'): s = s[:-2]
-        try:
-            int(s)
-            return s.zfill(5)
-        except (ValueError, TypeError):
-            return s
-    df = df.apply(lambda col: col.map(fmt))
-    if 'Ngày.1' in df.columns: df = df.rename(columns={'Ngày.1': 'Ngày'})
-    if not df.columns[0].startswith('TH') and df.columns[0] != 'Ngày':
-         df = df.rename(columns={df.columns[0]: 'Ngày'})
-    return df
-
-def fetch_data_from_source(fetch_type='month'):
-    try:
-        sess = requests.Session()
-        url = _get_month_url() if fetch_type == 'month' else _get_year_url()
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
-        r1 = sess.get(url, timeout=20, headers=headers)
-        r1.raise_for_status()
-        soup = BeautifulSoup(r1.text, 'lxml')
-        payload = {inp['name']: inp.get('value', '') for inp in soup.find_all('input', {'type': 'hidden'})}
-        y = str(datetime.now().year)
-        if fetch_type == 'month':
-            m = str(datetime.now().month)
-            payload.update({'ctl00$ContentPlaceHolder1$ddlThang': m, 'ctl00$ContentPlaceHolder1$ddlNam': y, 'ctl00$ContentPlaceHolder1$btnXem': 'Xem'})
-        else:
-            payload.update({'ctl00$ContentPlaceHolder1$ddlNam': y, 'ctl00$ContentPlaceHolder1$btnXem': 'Xem'})
-        r2 = sess.post(url, data=payload, timeout=20, headers=headers)
-        r2.raise_for_status()
-        soup2 = BeautifulSoup(r2.text, 'lxml')
-        keyword = 'Ngày' if fetch_type == 'month' else 'TH1'
-        table = next(t for t in soup2.find_all('table') if t.find('tr') and keyword in t.find('tr').get_text())
-        df = pd.read_html(StringIO(str(table)), header=0)[0].fillna('')
-        return _clean_df(df)
-    except Exception as e:
-        print(f"Error fetching data: {e}")
-        return None
-
-# --- API Endpoints ---
-
+# Route gốc ('/'): Sẽ phục vụ file index.html từ thư mục gốc
 @app.route('/')
-def home():
-    return "Backend API is running."
+def serve_index():
+    return send_from_directory('.', 'index.html')
+
+# Route này sẽ bắt các yêu cầu file khác như style.css, script.js
+# và phục vụ chúng từ thư mục gốc
+@app.route('/<path:path>')
+def serve_static_files(path):
+    return send_from_directory('.', path)
+
+# === CÁC API ENDPOINT GIỮ NGUYÊN, KHÔNG THAY ĐỔI ===
 
 @app.route('/fetch_data', methods=['POST'])
 def api_fetch_data():
@@ -87,24 +46,6 @@ def api_fetch_data():
             'is_year_data': (fetch_type == 'year')
         })
     return jsonify({'success': False, 'message': f'Kết nối {fetch_type} thất bại.'})
-
-# Tách hàm helper ra ngoài để dễ đọc hơn
-def _last_non_empty_row(df, col_name: str) -> int:
-    if col_name not in df.columns: return -1
-    col = df[col_name]
-    for r in range(len(col)-1, -1, -1):
-        v = col.iloc[r]
-        if isinstance(v, str) and v.strip() != '': return r
-    return -1
-
-def _prev_cell_year(df, day_idx: int, month_col: str):
-    if day_idx > 0: return day_idx - 1, month_col
-    if not (isinstance(month_col, str) and month_col.startswith("TH")): return -1, None
-    m = int(month_col[2:])
-    pm = 12 if m == 1 else m - 1
-    pcol = f"TH{pm}"
-    prow = _last_non_empty_row(df, pcol)
-    return (prow, pcol) if prow >= 0 else (-1, pcol)
 
 @app.route('/run_analysis', methods=['POST'])
 def api_run_analysis():
@@ -137,10 +78,6 @@ def api_run_analysis():
             patterns.append(pat[-2:] if isinstance(pat, str) and len(pat) >= 2 else '')
     patterns.reverse()
     
-    def matches_last_two_digits(v, p): return isinstance(v, str) and len(v) >= 2 and v[-2:] == p
-    def contains_two_digits(v, p):
-        if not (isinstance(v, str) and len(v) >= 2 and isinstance(p, str) and len(p) == 2): return False
-        return p[0] in v and p[1] in v
     match_func = matches_last_two_digits if exact_match else contains_two_digits
     
     all_results, cau_positions, predict_positions = [], set(), set()
@@ -194,6 +131,64 @@ def api_run_analysis():
         'predict_positions': [json.loads(p) for p in predict_positions],
         'dan_so_sets': dan_so_sets
     })
+
+# === CÁC HÀM LOGIC GỐC (GIỮ NGUYÊN) ===
+
+def fetch_data_from_source(fetch_type='month'):
+    try:
+        sess = requests.Session()
+        url = _get_month_url() if fetch_type == 'month' else _get_year_url()
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+        r1 = sess.get(url, timeout=20, headers=headers)
+        r1.raise_for_status()
+        soup = BeautifulSoup(r1.text, 'lxml')
+        payload = {inp['name']: inp.get('value', '') for inp in soup.find_all('input', {'type': 'hidden'})}
+        y = str(datetime.now().year)
+        if fetch_type == 'month':
+            m = str(datetime.now().month)
+            payload.update({'ctl00$ContentPlaceHolder1$ddlThang': m, 'ctl00$ContentPlaceHolder1$ddlNam': y, 'ctl00$ContentPlaceHolder1$btnXem': 'Xem'})
+        else:
+            payload.update({'ctl00$ContentPlaceHolder1$ddlNam': y, 'ctl00$ContentPlaceHolder1$btnXem': 'Xem'})
+        r2 = sess.post(url, data=payload, timeout=20, headers=headers)
+        r2.raise_for_status()
+        soup2 = BeautifulSoup(r2.text, 'lxml')
+        keyword = 'Ngày' if fetch_type == 'month' else 'TH1'
+        table = next(t for t in soup2.find_all('table') if t.find('tr') and keyword in t.find('tr').get_text())
+        df = pd.read_html(StringIO(str(table)), header=0)[0].fillna('')
+        return _clean_df(df)
+    except Exception as e:
+        print(f"Error fetching data: {e}")
+        return None
+
+def _get_month_url(): return 'https://congcuxoso.com/MienBac/DacBiet/PhoiCauDacBiet/PhoiCauThang5So.aspx'
+def _get_year_url(): return 'https://congcuxoso.com/MienBac/DacBiet/PhoiCauDacBiet/PhoiCauNam5So.aspx'
+def _clean_df(df: pd.DataFrame) -> pd.DataFrame:
+    def fmt(v):
+        s = str(v).strip();
+        if not s or s == '-----': return '';
+        if s.endswith('.0'): s = s[:-2];
+        try: int(s); return s.zfill(5);
+        except (ValueError, TypeError): return s
+    df = df.apply(lambda col: col.map(fmt));
+    if 'Ngày.1' in df.columns: df = df.rename(columns={'Ngày.1': 'Ngày'});
+    if not df.columns[0].startswith('TH') and df.columns[0] != 'Ngày': df = df.rename(columns={df.columns[0]: 'Ngày'});
+    return df
+def _last_non_empty_row(df, col_name: str) -> int:
+    if col_name not in df.columns: return -1;
+    col = df[col_name];
+    for r in range(len(col)-1, -1, -1): v = col.iloc[r];
+        if isinstance(v, str) and v.strip() != '': return r
+    return -1
+def _prev_cell_year(df, day_idx: int, month_col: str):
+    if day_idx > 0: return day_idx - 1, month_col;
+    if not (isinstance(month_col, str) and month_col.startswith("TH")): return -1, None;
+    m = int(month_col[2:]); pm = 12 if m == 1 else m - 1; pcol = f"TH{pm}";
+    prow = _last_non_empty_row(df, pcol);
+    return (prow, pcol) if prow >= 0 else (-1, pcol)
+def matches_last_two_digits(v, p): return isinstance(v, str) and len(v) >= 2 and v[-2:] == p
+def contains_two_digits(v, p):
+    if not (isinstance(v, str) and len(v) >= 2 and isinstance(p, str) and len(p) == 2): return False
+    return p[0] in v and p[1] in v
 
 if __name__ == '__main__':
     app.run(debug=True)
