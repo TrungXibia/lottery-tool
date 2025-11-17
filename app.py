@@ -7,7 +7,7 @@ from datetime import datetime
 from io import StringIO
 import json
 
-# Sửa lại import: Thêm send_from_directory
+# Import send_from_directory để phục vụ file từ thư mục gốc
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 
@@ -16,20 +16,17 @@ CORS(app)
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
-# === SỬA LẠI CÁCH PHỤC VỤ GIAO DIỆN ===
+# --- PHỤC VỤ GIAO DIỆN TỪ THƯ MỤC GỐC ---
 
-# Route gốc ('/'): Sẽ phục vụ file index.html từ thư mục gốc
 @app.route('/')
 def serve_index():
     return send_from_directory('.', 'index.html')
 
-# Route này sẽ bắt các yêu cầu file khác như style.css, script.js
-# và phục vụ chúng từ thư mục gốc
 @app.route('/<path:path>')
 def serve_static_files(path):
     return send_from_directory('.', path)
 
-# === CÁC API ENDPOINT GIỮ NGUYÊN, KHÔNG THAY ĐỔI ===
+# --- CÁC API ENDPOINT ---
 
 @app.route('/fetch_data', methods=['POST'])
 def api_fetch_data():
@@ -64,14 +61,16 @@ def api_run_analysis():
         cur_day, cur_col = row_idx, selected_month_col
         for _ in range(num_patterns):
             p_day, p_col = _prev_cell_year(df, cur_day, cur_col)
-            if p_day < 0 or p_col is None: pat = ''
+            if p_day < 0 or p_col is None: 
+                pat = ''
             else:
                 pat = df.iloc[p_day][p_col]
                 pattern_months.add(p_col)
             patterns.append(pat[-2:] if isinstance(pat, str) and len(pat) >= 2 else '')
             cur_day, cur_col = (p_day, p_col)
     else:
-        if year_col not in df.columns and len(df.columns) > 1: year_col = df.columns[1]
+        if year_col not in df.columns and len(df.columns) > 1: 
+            year_col = df.columns[1]
         for offset in range(1, num_patterns + 1):
             idx = row_idx - offset
             pat = df.iloc[idx][year_col] if idx >= 0 and year_col in df.columns else ''
@@ -96,7 +95,8 @@ def api_run_analysis():
             for col_name in cols_to_scan:
                 for i in range(len(df)):
                     if (inside and (i + (num_patterns - 1) * gap) >= len(df)) or \
-                       (not inside and (i - (num_patterns - 1) * gap) < 0): continue
+                       (not inside and (i - (num_patterns - 1) * gap) < 0): 
+                        continue
                     
                     ok, pos = True, []
                     for k in range(num_patterns):
@@ -121,8 +121,10 @@ def api_run_analysis():
             idx = dir_idx * 6 + step
             dan_so_sets[idx] = [[a + b for a in num for b in num] for num in result_nums]
             result_text = f"<b>{direction_label} – Cách {step}:</b> {count} cầu"
-            if result_nums: result_text += f"<br><i>Giá trị:</i> {','.join(result_nums)}"
-            else: result_text += "<br><i>Giá trị:</i> Không tìm thấy cầu"
+            if result_nums: 
+                result_text += f"<br><i>Giá trị:</i> {','.join(result_nums)}"
+            else: 
+                result_text += "<br><i>Giá trị:</i> Không tìm thấy cầu"
             all_results.append(result_text)
             
     return jsonify({
@@ -132,7 +134,33 @@ def api_run_analysis():
         'dan_so_sets': dan_so_sets
     })
 
-# === CÁC HÀM LOGIC GỐC (GIỮ NGUYÊN) ===
+# --- CÁC HÀM HỖ TRỢ (ĐÃ VIẾT TÁCH DÒNG ĐỂ TRÁNH LỖI INDENT) ---
+
+def _get_month_url(): 
+    return 'https://congcuxoso.com/MienBac/DacBiet/PhoiCauDacBiet/PhoiCauThang5So.aspx'
+
+def _get_year_url(): 
+    return 'https://congcuxoso.com/MienBac/DacBiet/PhoiCauDacBiet/PhoiCauNam5So.aspx'
+
+def _clean_df(df: pd.DataFrame) -> pd.DataFrame:
+    def fmt(v):
+        s = str(v).strip()
+        if not s or s == '-----': 
+            return ''
+        if s.endswith('.0'): 
+            s = s[:-2]
+        try: 
+            int(s)
+            return s.zfill(5)
+        except (ValueError, TypeError): 
+            return s
+            
+    df = df.apply(lambda col: col.map(fmt))
+    if 'Ngày.1' in df.columns: 
+        df = df.rename(columns={'Ngày.1': 'Ngày'})
+    if not df.columns[0].startswith('TH') and df.columns[0] != 'Ngày': 
+        df = df.rename(columns={df.columns[0]: 'Ngày'})
+    return df
 
 def fetch_data_from_source(fetch_type='month'):
     try:
@@ -160,34 +188,33 @@ def fetch_data_from_source(fetch_type='month'):
         print(f"Error fetching data: {e}")
         return None
 
-def _get_month_url(): return 'https://congcuxoso.com/MienBac/DacBiet/PhoiCauDacBiet/PhoiCauThang5So.aspx'
-def _get_year_url(): return 'https://congcuxoso.com/MienBac/DacBiet/PhoiCauDacBiet/PhoiCauNam5So.aspx'
-def _clean_df(df: pd.DataFrame) -> pd.DataFrame:
-    def fmt(v):
-        s = str(v).strip();
-        if not s or s == '-----': return '';
-        if s.endswith('.0'): s = s[:-2];
-        try: int(s); return s.zfill(5);
-        except (ValueError, TypeError): return s
-    df = df.apply(lambda col: col.map(fmt));
-    if 'Ngày.1' in df.columns: df = df.rename(columns={'Ngày.1': 'Ngày'});
-    if not df.columns[0].startswith('TH') and df.columns[0] != 'Ngày': df = df.rename(columns={df.columns[0]: 'Ngày'});
-    return df
 def _last_non_empty_row(df, col_name: str) -> int:
-    if col_name not in df.columns: return -1;
-    col = df[col_name];
-    for r in range(len(col)-1, -1, -1): v = col.iloc[r];
-        if isinstance(v, str) and v.strip() != '': return r
+    if col_name not in df.columns: 
+        return -1
+    col = df[col_name]
+    for r in range(len(col)-1, -1, -1): 
+        v = col.iloc[r]
+        if isinstance(v, str) and v.strip() != '': 
+            return r
     return -1
+
 def _prev_cell_year(df, day_idx: int, month_col: str):
-    if day_idx > 0: return day_idx - 1, month_col;
-    if not (isinstance(month_col, str) and month_col.startswith("TH")): return -1, None;
-    m = int(month_col[2:]); pm = 12 if m == 1 else m - 1; pcol = f"TH{pm}";
-    prow = _last_non_empty_row(df, pcol);
+    if day_idx > 0: 
+        return day_idx - 1, month_col
+    if not (isinstance(month_col, str) and month_col.startswith("TH")): 
+        return -1, None
+    m = int(month_col[2:])
+    pm = 12 if m == 1 else m - 1
+    pcol = f"TH{pm}"
+    prow = _last_non_empty_row(df, pcol)
     return (prow, pcol) if prow >= 0 else (-1, pcol)
-def matches_last_two_digits(v, p): return isinstance(v, str) and len(v) >= 2 and v[-2:] == p
+
+def matches_last_two_digits(v, p): 
+    return isinstance(v, str) and len(v) >= 2 and v[-2:] == p
+
 def contains_two_digits(v, p):
-    if not (isinstance(v, str) and len(v) >= 2 and isinstance(p, str) and len(p) == 2): return False
+    if not (isinstance(v, str) and len(v) >= 2 and isinstance(p, str) and len(p) == 2): 
+        return False
     return p[0] in v and p[1] in v
 
 if __name__ == '__main__':
