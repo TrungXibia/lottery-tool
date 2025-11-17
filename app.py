@@ -50,11 +50,9 @@ def _clean_df(df: pd.DataFrame) -> pd.DataFrame:
 
     df = df.apply(lambda col: col.map(fmt))
     
-    # Fix encoding issues với tên cột
     if 'Ngày.1' in df.columns: 
         df = df.rename(columns={'Ngày.1': 'Ngày'})
     
-    # Đảm bảo cột đầu tiên là 'Ngày' nếu không phải tháng
     if not df.columns[0].startswith('TH') and df.columns[0] != 'Ngày':
         df = df.rename(columns={df.columns[0]: 'Ngày'})
     
@@ -70,12 +68,10 @@ def fetch_data_from_source(fetch_type='month'):
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
         
-        # Request 1: Lấy form data
         r1 = sess.get(url, timeout=20, headers=headers)
         r1.raise_for_status()
         soup = BeautifulSoup(r1.text, 'lxml')
         
-        # Lấy hidden inputs
         payload = {
             inp['name']: inp.get('value', '') 
             for inp in soup.find_all('input', {'type': 'hidden'})
@@ -83,7 +79,6 @@ def fetch_data_from_source(fetch_type='month'):
         
         y = str(datetime.now().year)
         
-        # Chuẩn bị payload theo loại
         if fetch_type == 'month':
             m = str(datetime.now().month)
             payload.update({
@@ -97,11 +92,9 @@ def fetch_data_from_source(fetch_type='month'):
                 'ctl00$ContentPlaceHolder1$btnXem': 'Xem'
             })
         
-        # Request 2: Submit form
         r2 = sess.post(url, data=payload, timeout=20, headers=headers)
         r2.raise_for_status()
         
-        # Parse bảng kết quả
         soup2 = BeautifulSoup(r2.text, 'lxml')
         keyword = 'Ngày' if fetch_type == 'month' else 'TH1'
         
@@ -150,7 +143,6 @@ def api_run_analysis():
     """API phân tích tìm cầu"""
     data = request.get_json()
     
-    # Parse dữ liệu đầu vào
     df = pd.read_json(StringIO(data['df_json']), orient='split')
     is_year_data = data.get('is_year_data', False)
     row_idx = int(data.get('day_idx', len(df) - 1))
@@ -159,51 +151,45 @@ def api_run_analysis():
     selected_month_col = data.get('month_col')
     
     if is_year_data and not selected_month_col:
-        return jsonify({
-            'success': False,
-            'message': 'Vui lòng chọn tháng trước khi phân tích!'
-        })
+        return jsonify({'success': False, 'message': 'Vui lòng chọn tháng!'})
     
     patterns = []
     pattern_months = set()
     
-    def _last_non_empty_row(col_name: str) -> int:
-        """Tìm dòng cuối cùng có dữ liệu trong cột"""
-        if col_name not in df.columns: 
-            return -1
-        col = df[col_name]
-        for r in range(len(col)-1, -1, -1):
-            v = col.iloc[r]
-            if isinstance(v, str) and v.strip() != '': 
-                return r
-        return -1
-
-    def _prev_cell_year(day_idx: int, month_col: str):
-        """Tìm ô trước đó (cho dữ liệu năm)"""
-        if day_idx > 0: 
-            return day_idx - 1, month_col
-        
-        if not (isinstance(month_col, str) and month_col.startswith("TH")): 
-            return -1, None
-        
-        m = int(month_col[2:])
-        pm = 12 if m == 1 else m - 1
-        pcol = f"TH{pm}"
-        prow = _last_non_empty_row(pcol)
-        
-        return (prow, pcol) if prow >= 0 else (-1, pcol)
-
-    # Xây dựng patterns (mẫu cầu)
+    # --- START: SỬA LỖI LOGIC TÌM MẪU ---
     if is_year_data:
-        cur_day, cur_col = row_idx, selected_month_col
-        for _ in range(num_patterns):
-            p_day, p_col = _prev_cell_year(cur_day, cur_col)
-            pat = df.iloc[p_day][p_col] if p_day >= 0 and p_col is not None else ''
-            pattern_months.add(p_col)
-            patterns.append(pat[-2:] if isinstance(pat, str) and len(pat) >= 2 else '')
-            cur_day, cur_col = (p_day, p_col)
-    else:
-        # Dữ liệu tháng
+        # Tạm thời xây dựng danh sách mẫu theo thứ tự ngược (mẫu xa nhất trước)
+        temp_patterns = []
+        
+        # Mẫu 2 (b) - Cùng ngày, tháng trước
+        if num_patterns >= 2:
+            try:
+                current_month_num = int(selected_month_col[2:])
+                if current_month_num > 1:
+                    p_col = f"TH{current_month_num - 1}"
+                    pat_val = df.iloc[row_idx][p_col]
+                    temp_patterns.append(pat_val[-2:] if isinstance(pat_val, str) and len(pat_val) >= 2 else '')
+                    pattern_months.add(p_col)
+                else:
+                    temp_patterns.append('')
+            except (ValueError, IndexError):
+                temp_patterns.append('')
+        
+        # Mẫu 1 (a) - Ngày trước, cùng tháng
+        if num_patterns >= 1:
+            if row_idx > 0:
+                p_col = selected_month_col
+                pat_val = df.iloc[row_idx - 1][p_col]
+                temp_patterns.append(pat_val[-2:] if isinstance(pat_val, str) and len(pat_val) >= 2 else '')
+                pattern_months.add(p_col)
+            else:
+                temp_patterns.append('')
+        
+        # Logic cho các mẫu xa hơn (c, d...) không rõ ràng, nên ta chỉ hỗ trợ 2 mẫu
+        # Đảo ngược lại để có thứ tự đúng: [mẫu_xa, mẫu_gần] -> [mẫu_gần, mẫu_xa]
+        patterns = list(reversed(temp_patterns))
+
+    else: # Logic cho dữ liệu tháng (giữ nguyên)
         year_col = str(datetime.now().year)
         if year_col not in df.columns and len(df.columns) > 1: 
             year_col = df.columns[1]
@@ -212,8 +198,8 @@ def api_run_analysis():
             idx = row_idx - offset
             pat = df.iloc[idx][year_col] if idx >= 0 else ''
             patterns.append(pat[-2:] if isinstance(pat, str) and len(pat) >= 2 else '')
-    
-    patterns.reverse()
+        patterns.reverse()
+    # --- END: KẾT THÚC SỬA LỖI ---
     
     # Hàm kiểm tra match
     def matches_last_two_digits(v, p): 
@@ -226,7 +212,6 @@ def api_run_analysis():
     
     match_func = matches_last_two_digits if exact_match else contains_two_digits
     
-    # Khởi tạo kết quả
     all_results = []
     cau_positions = []
     predict_positions = []
@@ -235,32 +220,21 @@ def api_run_analysis():
     cols_full = list(df.columns)
     cols_to_scan = [c for c in cols_full if c != 'Ngày']
     
-    # --- START: SỬA LỖI TẠI ĐÂY ---
     if is_year_data:
-        # Xử lý cho dữ liệu năm (khi các cột là TH1, TH2...)
-        # Loại bỏ các cột đã dùng để tạo mẫu
         for month in pattern_months:
             if month in cols_to_scan:
                 cols_to_scan.remove(month)
-        # Loại bỏ cột đang chọn
         if selected_month_col in cols_to_scan:
             cols_to_scan.remove(selected_month_col)
     else:
-        # Xử lý cho dữ liệu tháng (khi các cột là 2023, 2024...)
-        # Xác định cột nguồn đã được dùng để tạo mẫu
         source_year_col = str(datetime.now().year)
         if source_year_col not in df.columns and len(df.columns) > 1: 
-            source_year_col = df.columns[1] # Thường là cột thứ hai
-        
-        # Chỉ loại bỏ cột nguồn ra khỏi danh sách quét
+            source_year_col = df.columns[1]
         if source_year_col in cols_to_scan:
             cols_to_scan.remove(source_year_col)
-    # --- END: KẾT THÚC SỬA LỖI ---
             
-    # Vòng lặp chính: Tìm cầu
     for dir_idx, inside in enumerate([True, False]):
         direction_label = "Từ trên xuống" if inside else "Từ dưới lên"
-        
         for step in range(6):
             gap = step + 1
             count = 0
@@ -268,35 +242,27 @@ def api_run_analysis():
             
             for col_name in cols_to_scan:
                 col_index = cols_full.index(col_name)
-                
                 for i in range(len(df)):
-                    # Kiểm tra biên
-                    if inside and (i + (num_patterns - 1) * gap) >= len(df):
-                        continue
-                    if not inside and (i - (num_patterns - 1) * gap) < 0:
+                    if (inside and (i + (num_patterns - 1) * gap) >= len(df)) or \
+                       (not inside and (i - (num_patterns - 1) * gap) < 0):
                         continue
                     
                     ok = True
                     pos = []
-                    
                     for k in range(num_patterns):
                         row_offset = k * gap if inside else -k * gap
                         row_pos = i + row_offset
                         v = df.iloc[row_pos][col_name]
-                        
                         if not match_func(v, patterns[k]):
                             ok = False
                             break
-                        
                         pos.append({'row': row_pos, 'col': col_index})
                     
                     if ok:
                         predict_idx = i + (num_patterns * gap if inside else -num_patterns * gap)
-                        
                         if 0 <= predict_idx < len(df):
                             count += 1
                             cau_positions.extend(pos)
-                            
                             pv = df.iloc[predict_idx][col_name]
                             if pv:
                                 result_nums.append(pv)
@@ -305,7 +271,7 @@ def api_run_analysis():
             idx = dir_idx * 6 + step
             dan_so_sets[idx] = [
                 [a + b for a in num for b in num] 
-                for num in result_nums if len(num) >= 2 # Đảm bảo số có ít nhất 2 chữ số
+                for num in result_nums if len(num) >= 2
             ]
             
             result_text = f"<b>{direction_label} – Cách {step}:</b> {count} cầu"
@@ -313,7 +279,6 @@ def api_run_analysis():
                 result_text += f"<br><i>Giá trị:</i> {','.join(result_nums)}"
             else: 
                 result_text += "<br><i>Giá trị:</i> Không tìm thấy cầu"
-            
             all_results.append(result_text)
     
     return jsonify({
@@ -327,4 +292,4 @@ def api_run_analysis():
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True) # Bật debug để dễ phát triển
+    app.run(host='0.0.0.0', port=port, debug=True)
