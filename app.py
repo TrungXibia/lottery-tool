@@ -1,8 +1,8 @@
+# -*- coding: utf-8 -*-
 import pandas as pd
 from bs4 import BeautifulSoup
 import requests
 import warnings
-from collections import Counter
 from datetime import datetime
 from io import StringIO
 import json
@@ -35,10 +35,13 @@ def _get_year_url():
     return 'https://congcuxoso.com/MienBac/DacBiet/PhoiCauDacBiet/PhoiCauNam5So.aspx'
     
 def _clean_df(df: pd.DataFrame) -> pd.DataFrame:
+    """Làm sạch DataFrame và chuẩn hóa dữ liệu"""
     def fmt(v):
         s = str(v).strip()
-        if not s or s == '-----': return ''
-        if s.endswith('.0'): s = s[:-2]
+        if not s or s == '-----': 
+            return ''
+        if s.endswith('.0'): 
+            s = s[:-2]
         try:
             int(s)
             return s.zfill(5)
@@ -46,24 +49,41 @@ def _clean_df(df: pd.DataFrame) -> pd.DataFrame:
             return s
 
     df = df.apply(lambda col: col.map(fmt))
-    if 'Ngày.1' in df.columns: df = df.rename(columns={'Ngày.1': 'Ngày'})
+    
+    # Fix encoding issues với tên cột
+    if 'Ngày.1' in df.columns: 
+        df = df.rename(columns={'Ngày.1': 'Ngày'})
+    
+    # Đảm bảo cột đầu tiên là 'Ngày' nếu không phải tháng
     if not df.columns[0].startswith('TH') and df.columns[0] != 'Ngày':
-         df = df.rename(columns={df.columns[0]: 'Ngày'})
+        df = df.rename(columns={df.columns[0]: 'Ngày'})
+    
     return df
 
 def fetch_data_from_source(fetch_type='month'):
+    """Lấy dữ liệu từ website xổ số"""
     try:
         sess = requests.Session()
         url = _get_month_url() if fetch_type == 'month' else _get_year_url()
         
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+        
+        # Request 1: Lấy form data
         r1 = sess.get(url, timeout=20, headers=headers)
         r1.raise_for_status()
         soup = BeautifulSoup(r1.text, 'lxml')
         
-        payload = {inp['name']: inp.get('value', '') for inp in soup.find_all('input', {'type': 'hidden'})}
+        # Lấy hidden inputs
+        payload = {
+            inp['name']: inp.get('value', '') 
+            for inp in soup.find_all('input', {'type': 'hidden'})
+        }
+        
         y = str(datetime.now().year)
         
+        # Chuẩn bị payload theo loại
         if fetch_type == 'month':
             m = str(datetime.now().month)
             payload.update({
@@ -76,42 +96,61 @@ def fetch_data_from_source(fetch_type='month'):
                 'ctl00$ContentPlaceHolder1$ddlNam': y,
                 'ctl00$ContentPlaceHolder1$btnXem': 'Xem'
             })
-            
+        
+        # Request 2: Submit form
         r2 = sess.post(url, data=payload, timeout=20, headers=headers)
         r2.raise_for_status()
         
+        # Parse bảng kết quả
         soup2 = BeautifulSoup(r2.text, 'lxml')
         keyword = 'Ngày' if fetch_type == 'month' else 'TH1'
-        table = next(t for t in soup2.find_all('table') if t.find('tr') and keyword in t.find('tr').get_text())
+        
+        table = next(
+            t for t in soup2.find_all('table') 
+            if t.find('tr') and keyword in t.find('tr').get_text()
+        )
         
         df = pd.read_html(StringIO(str(table)), header=0)[0].fillna('')
         return _clean_df(df)
+        
     except Exception as e:
-        print(f"Error fetching data: {e}")
+        print(f"❌ Error fetching data: {e}")
         return None
 
 # --- API Endpoints ---
 
 @app.route('/fetch_data', methods=['POST'])
 def api_fetch_data():
+    """API lấy dữ liệu tháng/năm"""
     data = request.get_json()
     fetch_type = data.get('type', 'month')
+    
     df = fetch_data_from_source(fetch_type)
+    
     if df is not None:
         return jsonify({
             'success': True,
-            'table_html': df.to_html(classes='table table-bordered text-center', index=False),
+            'table_html': df.to_html(
+                classes='table table-bordered text-center', 
+                index=False
+            ),
             'columns': list(df.columns),
             'rows': len(df),
             'df_json': df.to_json(orient='split'),
             'is_year_data': (fetch_type == 'year')
         })
-    return jsonify({'success': False, 'message': f'Kết nối {fetch_type} thất bại.'})
+    
+    return jsonify({
+        'success': False, 
+        'message': f'Kết nối {fetch_type} thất bại.'
+    })
 
 @app.route('/run_analysis', methods=['POST'])
 def api_run_analysis():
+    """API phân tích tìm cầu"""
     data = request.get_json()
     
+    # Parse dữ liệu đầu vào
     df = pd.read_json(StringIO(data['df_json']), orient='split')
     is_year_data = data.get('is_year_data', False)
     row_idx = int(data.get('day_idx', len(df) - 1))
@@ -119,94 +158,173 @@ def api_run_analysis():
     exact_match = data.get('exact_match', False)
     selected_month_col = data.get('month_col')
     
+    # FIX: Kiểm tra selected_month_col hợp lệ
+    if is_year_data and not selected_month_col:
+        return jsonify({
+            'success': False,
+            'message': 'Vui lòng chọn tháng trước khi phân tích!'
+        })
+    
     patterns = []
     pattern_months = set()
     
     def _last_non_empty_row(col_name: str) -> int:
-        if col_name not in df.columns: return -1
+        """Tìm dòng cuối cùng có dữ liệu trong cột"""
+        if col_name not in df.columns: 
+            return -1
         col = df[col_name]
         for r in range(len(col)-1, -1, -1):
             v = col.iloc[r]
-            if isinstance(v, str) and v.strip() != '': return r
+            if isinstance(v, str) and v.strip() != '': 
+                return r
         return -1
 
     def _prev_cell_year(day_idx: int, month_col: str):
-        if day_idx > 0: return day_idx - 1, month_col
-        if not (isinstance(month_col, str) and month_col.startswith("TH")): return -1, None
+        """Tìm ô trước đó (cho dữ liệu năm)"""
+        if day_idx > 0: 
+            return day_idx - 1, month_col
+        
+        # Chuyển sang tháng trước
+        if not (isinstance(month_col, str) and month_col.startswith("TH")): 
+            return -1, None
+        
         m = int(month_col[2:])
         pm = 12 if m == 1 else m - 1
         pcol = f"TH{pm}"
         prow = _last_non_empty_row(pcol)
+        
         return (prow, pcol) if prow >= 0 else (-1, pcol)
 
+    # Xây dựng patterns (mẫu cầu)
     if is_year_data:
         cur_day, cur_col = row_idx, selected_month_col
         for _ in range(num_patterns):
             p_day, p_col = _prev_cell_year(cur_day, cur_col)
-            if p_day < 0 or p_col is None: pat = ''
+            if p_day < 0 or p_col is None: 
+                pat = ''
             else:
                 pat = df.iloc[p_day][p_col]
                 pattern_months.add(p_col)
+            
             patterns.append(pat[-2:] if isinstance(pat, str) and len(pat) >= 2 else '')
             cur_day, cur_col = (p_day, p_col)
     else:
+        # Dữ liệu tháng
         year_col = str(datetime.now().year)
-        if year_col not in df.columns and len(df.columns) > 1: year_col = df.columns[1]
+        if year_col not in df.columns and len(df.columns) > 1: 
+            year_col = df.columns[1]
+        
         for offset in range(1, num_patterns + 1):
             idx = row_idx - offset
             pat = df.iloc[idx][year_col] if idx >= 0 else ''
             patterns.append(pat[-2:] if isinstance(pat, str) and len(pat) >= 2 else '')
+    
     patterns.reverse()
     
-    def matches_last_two_digits(v, p): return isinstance(v, str) and len(v) >= 2 and v[-2:] == p
+    # Hàm kiểm tra match
+    def matches_last_two_digits(v, p): 
+        return isinstance(v, str) and len(v) >= 2 and v[-2:] == p
+    
     def contains_two_digits(v, p):
-        if not (isinstance(v, str) and len(v) >= 2 and isinstance(p, str) and len(p) == 2): return False
+        if not (isinstance(v, str) and len(v) >= 2 and isinstance(p, str) and len(p) == 2): 
+            return False
         return p[0] in v and p[1] in v
+    
     match_func = matches_last_two_digits if exact_match else contains_two_digits
     
-    all_results, cau_positions, predict_positions = [], set(), set()
+    # Khởi tạo kết quả
+    all_results = []
+    cau_positions = []
+    predict_positions = []
     dan_so_sets = [[] for _ in range(12)]
-    cols_full = list(df.columns)
-    cols_to_scan = [c for c in cols_full if c not in ['Ngày'] and c not in pattern_months]
     
-    if is_year_data and selected_month_col in cols_to_scan: cols_to_scan.remove(selected_month_col)
-    elif not is_year_data: cols_to_scan = []
+    cols_full = list(df.columns)
+    cols_to_scan = [
+        c for c in cols_full 
+        if c != 'Ngày' and c not in pattern_months
+    ]
+    
+    # Loại bỏ cột đang chọn (nếu là dữ liệu năm)
+    if is_year_data and selected_month_col in cols_to_scan: 
+        cols_to_scan.remove(selected_month_col)
+    elif not is_year_data: 
+        cols_to_scan = []
 
+    # Vòng lặp chính: Tìm cầu
     for dir_idx, inside in enumerate([True, False]):
         direction_label = "Từ trên xuống" if inside else "Từ dưới lên"
+        
         for step in range(6):
-            gap, count, result_nums = step + 1, 0, []
+            gap = step + 1
+            count = 0
+            result_nums = []
+            
             for col_name in cols_to_scan:
+                col_index = cols_full.index(col_name)  # FIX: Lưu index
+                
                 for i in range(len(df)):
-                    if (inside and (i + (num_patterns - 1) * gap) >= len(df)) or \
-                       (not inside and (i - (num_patterns - 1) * gap) < 0): continue
-                    ok, pos = True, []
+                    # Kiểm tra biên
+                    if inside and (i + (num_patterns - 1) * gap) >= len(df):
+                        continue
+                    if not inside and (i - (num_patterns - 1) * gap) < 0:
+                        continue
+                    
+                    # Kiểm tra pattern match
+                    ok = True
+                    pos = []
+                    
                     for k in range(num_patterns):
                         row_offset = k * gap if inside else -k * gap
-                        v = df.iloc[i + row_offset][col_name]
+                        row_pos = i + row_offset
+                        v = df.iloc[row_pos][col_name]
+                        
                         if not match_func(v, patterns[k]):
                             ok = False
                             break
-                        pos.append({'row': i + row_offset, 'col': cols_full.index(col_name)})
+                        
+                        # FIX: Lưu cả row và col index (không phải col_name)
+                        pos.append({
+                            'row': row_pos, 
+                            'col': col_index
+                        })
+                    
                     if ok:
+                        # Tìm vị trí dự đoán
                         predict_idx = i + (num_patterns * gap if inside else -num_patterns * gap)
+                        
                         if 0 <= predict_idx < len(df):
                             count += 1
-                            cau_positions.update(json.dumps(p) for p in pos)
+                            cau_positions.extend(pos)
+                            
                             pv = df.iloc[predict_idx][col_name]
                             if pv:
                                 result_nums.append(pv)
-                                predict_positions.add(json.dumps({'row': predict_idx, 'col': cols_full.index(col_name)}))
+                                predict_positions.append({
+                                    'row': predict_idx, 
+                                    'col': col_index
+                                })
+            
+            # Lưu kết quả
             idx = dir_idx * 6 + step
-            dan_so_sets[idx] = [[a + b for a in num for b in num] for num in result_nums]
+            dan_so_sets[idx] = [
+                [a + b for a in num for b in num] 
+                for num in result_nums
+            ]
+            
             result_text = f"<b>{direction_label} – Cách {step}:</b> {count} cầu"
-            if result_nums: result_text += f"<br><i>Giá trị:</i> {','.join(result_nums)}"
-            else: result_text += "<br><i>Giá trị:</i> Không tìm thấy cầu"
+            if result_nums: 
+                result_text += f"<br><i>Giá trị:</i> {','.join(result_nums)}"
+            else: 
+                result_text += "<br><i>Giá trị:</i> Không tìm thấy cầu"
+            
             all_results.append(result_text)
+    
     return jsonify({
-        'success': True, 'patterns': patterns, 'stats_html': '<hr>'.join(all_results),
-        'cau_positions': [json.loads(p) for p in cau_positions],
-        'predict_positions': [json.loads(p) for p in predict_positions],
+        'success': True, 
+        'patterns': patterns, 
+        'stats_html': '<hr>'.join(all_results),
+        'cau_positions': cau_positions,
+        'predict_positions': predict_positions,
         'dan_so_sets': dan_so_sets
     })
 
