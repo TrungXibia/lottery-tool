@@ -1,0 +1,69 @@
+body {
+    background-color: #f4f7f6;
+    font-family: Arial, sans-serif;
+}
+header h3 { color: #0d6efd; }
+
+.table-responsive {
+    max-height: 75vh;
+}
+
+/* === PHẦN SỬA LỖI GIAO DIỆN MOBILE (ĐÃ VIẾT LẠI HOÀN CHỈNH) === */
+@media (max-width: 768px) {
+    /* Bước 1: Bắt buộc các khu vực chứa bảng phải có thanh cuộn ngang */
+    #table-container, #grid-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch; /* Giúp cuộn mượt hơn trên iOS */
+    }
+
+    /* Bước 2: Ra lệnh cho các ô trong bảng KHÔNG được xuống dòng và phải có độ rộng tối thiểu */
+    #table-container table td, #table-container table th,
+    #grid-container table td, #grid-container table th {
+        white-space: nowrap !important; /* Quan trọng nhất: Cấm xuống dòng */
+        min-width: 75px !important;     /* Quan trọng: Đặt độ rộng tối thiểu cho cột */
+    }
+}
+/* === KẾT THÚC PHẦN SỬA LỖI === */
+
+
+#grid-container table {
+    border-collapse: collapse;
+}
+
+#grid-container td, #grid-container th {
+    border: 1px solid #dee2e6;
+    text-align: center;
+    padding: 0.5rem;
+    white-space: nowrap; /* Áp dụng cho cả desktop để nhất quán */
+}
+
+#grid-container th {
+    background-color: #e9ecef;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.cau-highlight { background-color: #ffff99 !important; font-weight: bold; }
+.predict-highlight { background-color: #ff4d4d !important; color: white; font-weight: bold; }
+
+.pattern-box {
+    text-align: center;
+    padding: 5px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+.pattern-box input {
+    width: 50px;
+    text-align: center;
+    font-weight: bold;
+    border: none;
+    background: transparent;
+}
+
+.pattern-highlight-0 { background-color: #ffcccc !important; }
+.pattern-highlight-1 { background-color: #ccffcc !important; }
+.pattern-highlight-2 { background-color: #ccccff !important; }
+.pattern-highlight-3 { background-color: #ffcc99 !important; }
+.pattern-highlight-4 { background-color: #99ccff !important; }
+.pattern-highlight-5 { background-color: #ff99cc !important; }
