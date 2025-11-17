@@ -1,163 +1,83 @@
+<!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Công cụ tìm cầu MB</title>
-    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { padding: 1rem; background-color: #f8f9fa; }
-        .table-bordered th, .table-bordered td { vertical-align: middle; }
-        .pattern-box { display: inline-block; padding: 5px 10px; border-radius: 5px; margin-right: 10px; border: 1px solid #ccc; }
-        .pattern-box input { border: none; background: transparent; font-weight: bold; width: 50px; }
-        #grid-container table td { font-weight: bold; cursor: default; }
-        .cau-highlight { background-color: #ffc107 !important; /* Vàng */ color: black; }
-        .predict-highlight { background-color: #198754 !important; /* Xanh lá đậm */ color: white; }
-        .pattern-highlight-0 { background-color: #ffcccc; } /* Màu của Mẫu a */
-        .pattern-highlight-1 { background-color: #ccffcc; } /* Màu của Mẫu b */
-        .pattern-highlight-2 { background-color: #ccccff; }
-        .pattern-highlight-3 { background-color: #ffcc99; }
-        .pattern-highlight-4 { background-color: #99ccff; }
-        .pattern-highlight-5 { background-color: #ff99cc; }
-        .nav-tabs .nav-link.disabled { color: #adb5bd; background-color: transparent; border-color: transparent; }
-        #loader {
-            display: none; 
-            border: 8px solid #f3f3f3; 
-            border-top: 8px solid #3498db; 
-            border-radius: 50%;
-            width: 60px;
-            height: 60px;
-            animation: spin 2s linear infinite;
-            margin: 20px auto;
-        }
+        body { padding-top: 1rem; padding-bottom: 1rem; background-color: #f8f9fa; }
+        .pattern-box input { border: none; background: transparent; font-weight: bold; width: 50px; text-align: center; }
+        .table-bordered th, .table-bordered td { vertical-align: middle; text-align: center; font-weight: bold; }
+        .cau-highlight { background-color: #ffc107 !important; color: black; }
+        .predict-highlight { background-color: #dc3545 !important; color: white; }
+        .pattern-highlight-0 { background-color: #ffcccc; }
+        .pattern-highlight-1 { background-color: #ccffcc; }
+        .nav-tabs .nav-link.disabled { color: #adb5bd; }
+        #loader { display: none; border: 8px solid #f3f3f3; border-top: 8px solid #3498db; border-radius: 50%; width: 60px; height: 60px; animation: spin 1s linear infinite; margin: 50px auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
     <div class="container-fluid">
         <h3 class="mb-3">Công cụ tìm cầu MB</h3>
-
         <div class="card">
             <div class="card-header">
-                <ul class="nav nav-tabs card-header-tabs" id="myTab" role="tablist">
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link active" id="ketqua-tab" data-bs-toggle="tab" data-bs-target="#ketqua" type="button" role="tab" aria-controls="ketqua" aria-selected="true">Kết Quả</button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="timcau-tab" data-bs-toggle="tab" data-bs-target="#timcau" type="button" role="tab" aria-controls="timcau" aria-selected="false">Tìm Cầu</button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="lenmuc-tab" data-bs-toggle="tab" data-bs-target="#lenmuc" type="button" role="tab" aria-controls="lenmuc" aria-selected="false">Lên Mức Số</button>
-                    </li>
+                <ul class="nav nav-tabs card-header-tabs" id="mainTab" role="tablist">
+                    <li class="nav-item" role="presentation"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#ketqua" type="button">Kết Quả</button></li>
+                    <li class="nav-item" role="presentation"><button class="nav-link disabled" id="timcau-tab-btn" data-bs-toggle="tab" data-bs-target="#timcau" type="button">Tìm Cầu</button></li>
+                    <li class="nav-item" role="presentation"><button class="nav-link disabled" id="lenmuc-tab-btn" data-bs-toggle="tab" data-bs-target="#lenmuc" type="button">Lên Mức Số</button></li>
                 </ul>
             </div>
             <div class="card-body">
-                <div class="tab-content" id="myTabContent">
-                    <!-- Tab 1: Kết Quả -->
-                    <div class="tab-pane fade show active" id="ketqua" role="tabpanel" aria-labelledby="ketqua-tab">
-                        <div class="mb-3">
-                            <button id="btnFetchMonth" class="btn btn-primary">Lấy KQ Tháng</button>
-                            <button id="btnFetchYear" class="btn btn-info">Lấy KQ Năm</button>
-                        </div>
+                <div class="tab-content">
+                    <div class="tab-pane fade show active" id="ketqua" role="tabpanel">
+                        <button id="btnFetchMonth" class="btn btn-primary">Lấy KQ Tháng</button>
+                        <button id="btnFetchYear" class="btn btn-info">Lấy KQ Năm</button>
                         <div id="loader"></div>
-                        <div id="table-container" class="table-responsive">
-                            <p>Chưa có dữ liệu. Vui lòng nhấn nút để lấy kết quả.</p>
-                        </div>
+                        <div id="table-container" class="table-responsive mt-3"><p>Chưa có dữ liệu.</p></div>
                     </div>
-
-                    <!-- Tab 2: Tìm Cầu -->
-                    <div class="tab-pane fade" id="timcau" role="tabpanel" aria-labelledby="timcau-tab">
+                    <div class="tab-pane fade" id="timcau" role="tabpanel">
                         <div class="row">
                             <div class="col-lg-9">
-                                <div id="grid-container" class="table-responsive">
-                                    <p class="text-muted">Chạy "Lấy KQ" ở tab Kết Quả trước để có dữ liệu ở đây.</p>
-                                </div>
+                                <div id="grid-container" class="table-responsive"></div>
                             </div>
                             <div class="col-lg-3">
                                 <div class="card">
                                     <div class="card-body">
                                         <h5 class="card-title">Cài đặt</h5>
                                         <div class="row g-2 align-items-center mb-2">
-                                            <div class="col-auto">
-                                                <label for="numPatterns" class="form-label mb-0">Số ngày chạy cầu:</label>
-                                            </div>
-                                            <div class="col">
-                                                <select class="form-select form-select-sm" id="numPatterns">
-                                                    <option value="2" selected>2</option>
-                                                    <option value="3">3</option>
-                                                    <option value="4">4</option>
-                                                    <option value="5">5</option>
-                                                </select>
-                                            </div>
+                                            <div class="col-auto"><label class="col-form-label">Số ngày chạy cầu:</label></div>
+                                            <div class="col"><select class="form-select form-select-sm" id="numPatterns"><option value="2" selected>2</option><option value="3">3</option></select></div>
                                         </div>
                                         <div class="row g-2 align-items-center mb-2">
-                                            <div class="col-auto">
-                                                <label for="daySelector" class="form-label mb-0">Chọn ngày:</label>
-                                            </div>
-                                            <div class="col">
-                                                <select class="form-select form-select-sm" id="daySelector"></select>
-                                            </div>
+                                            <div class="col-auto"><label class="col-form-label">Chọn ngày:</label></div>
+                                            <div class="col"><select class="form-select form-select-sm" id="daySelector"></select></div>
                                         </div>
                                         <div class="row g-2 align-items-center mb-2" id="month-selector-group" style="display: none;">
-                                            <div class="col-auto">
-                                                <label for="monthSelector" class="form-label mb-0">Chọn tháng:</label>
-                                            </div>
-                                            <div class="col">
-                                                <select class="form-select form-select-sm" id="monthSelector"></select>
-                                            </div>
+                                            <div class="col-auto"><label class="col-form-label">Chọn tháng:</label></div>
+                                            <div class="col"><select class="form-select form-select-sm" id="monthSelector"></select></div>
                                         </div>
-                                        <div class="form-check form-switch mb-3">
-                                            <input class="form-check-input" type="checkbox" role="switch" id="exactMatchCheck" checked>
-                                            <label class="form-check-label" for="exactMatchCheck">Chính xác mẫu (2 số cuối)</label>
-                                        </div>
-
-                                        <div id="pattern-display" class="d-flex flex-wrap gap-2 mb-3"></div>
-                                    </div>
-                                </div>
-
-                                <div class="card mt-3">
-                                    <div class="card-body">
-                                        <h5 class="card-title">Thống Kê Cầu</h5>
-                                        <div class="btn-group w-100 mb-2" role="group">
-                                            <button class="btn btn-sm btn-outline-secondary btn-run-step" data-step="0">Cách 0</button>
-                                            <button class="btn btn-sm btn-outline-secondary btn-run-step" data-step="1">Cách 1</button>
-                                            <button class="btn btn-sm btn-outline-secondary btn-run-step" data-step="2">Cách 2</button>
-                                        </div>
-                                        <div class="btn-group w-100 mb-3" role="group">
-                                             <button class="btn btn-sm btn-outline-secondary btn-run-step" data-step="3">Cách 3</button>
-                                             <button class="btn btn-sm btn-outline-secondary btn-run-step" data-step="4">Cách 4</button>
-                                             <button class="btn btn-sm btn-outline-secondary btn-run-step" data-step="5">Cách 5</button>
-                                        </div>
-                                        <div class="d-grid">
-                                            <button id="btnRunAnalysisAuto" class="btn btn-warning">Chạy Phân Tích (Auto)</button>
-                                        </div>
+                                        <div id="pattern-display" class="d-flex flex-wrap gap-2 my-3"></div>
+                                        <div class="d-grid"><button id="btnRunAnalysisAuto" class="btn btn-warning">Chạy Phân Tích (Auto)</button></div>
                                         <hr>
-                                        <div id="stats-results" class="small" style="max-height: 250px; overflow-y: auto;">
-                                            <p class="text-muted">Từ trên xuống – Cách 0: 0 cầu<br><i>Giá trị:</i> Không tìm thấy cầu</p><hr>
-                                            <p class="text-muted">Từ trên xuống – Cách 1: 0 cầu<br><i>Giá trị:</i> Không tìm thấy cầu</p><hr>
-                                            <p class="text-muted">Từ trên xuống – Cách 2: 0 cầu<br><i>Giá trị:</i> Không tìm thấy cầu</p><hr>
-                                            <p class="text-muted">Từ trên xuống – Cách 3: 0 cầu<br><i>Giá trị:</i> Không tìm thấy cầu</p><hr>
-                                            <p class="text-muted">Từ trên xuống – Cách 4: 0 cầu<br><i>Giá trị:</i> Không tìm thấy cầu</p><hr>
-                                            <p class="text-muted">Từ trên xuống – Cách 5: 0 cầu<br><i>Giá trị:</i> Không tìm thấy cầu</p>
-                                        </div>
+                                        <h5 class="card-title">Thống Kê Cầu</h5>
+                                        <div id="stats-results" class="small" style="max-height: 250px; overflow-y: auto;"></div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-
-                    <!-- Tab 3: Lên Mức Số -->
-                    <div class="tab-pane fade" id="lenmuc" role="tabpanel" aria-labelledby="lenmuc-tab">
-                        <p class="text-muted">Chạy "Phân Tích (Auto)" ở tab Tìm Cầu trước để có dữ liệu ở đây.</p>
-                        <div class="row" id="level-selection-container">
-                            <!-- Nội dung sẽ được tạo bởi JavaScript -->
-                        </div>
-                        <hr>
-                        <div class="row mt-3">
-                            <div class="col-md-6">
+                    <div class="tab-pane fade" id="lenmuc" role="tabpanel">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <p>Chọn các mức số để tổng hợp:</p>
+                                <div class="row" id="level-selection-container" style="max-height: 60vh; overflow-y: auto;"></div>
+                            </div>
+                            <div class="col-md-4">
                                 <h5>Module Lấy Mức Cuối</h5>
                                 <button id="btnCalculateFinal" class="btn btn-success">Tính Mức Cuối</button>
-                                <textarea id="final-levels-output" class="form-control mt-2" rows="6" readonly>Chưa chọn mức nào.</textarea>
+                                <textarea id="final-levels-output" class="form-control mt-2" rows="10" readonly>Chưa chọn mức nào.</textarea>
                                 <button id="btnCopyFinal" class="btn btn-secondary mt-2">Copy Kết Quả</button>
                             </div>
                         </div>
@@ -167,325 +87,137 @@
         </div>
     </div>
 
-    <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- jQuery -->
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-
     <script>
     $(document).ready(function() {
-        // API Base URL - để trống vì cùng domain
         const API_BASE_URL = '';
+        let currentData = { df_json: null, dan_so_sets: [] };
+        const colors = ['#ffcccc', '#ccffcc', '#ccccff'];
 
-        let currentData = {
-            df_html: '',
-            df_json: null,
-            is_year_data: false,
-            column_names: [],
-            dan_so_sets: []
-        };
-        
-        const colors = ['#ffcccc', '#ccffcc', '#ccccff', '#ffcc99', '#99ccff', '#ff99cc'];
-
-        function showLoader(show) { 
-            $('#loader').toggle(show); 
-            $('#table-container').toggle(!show); 
-        }
-        
-        function enableTabs() { 
-            $('#timcau-tab, #lenmuc-tab').prop('disabled', false); 
-        }
-        
-        // Tự động hiển thị bảng khi chuyển sang tab "Tìm Cầu"
-        $('button[data-bs-target="#timcau"]').on('shown.bs.tab', function() {
-            if (currentData.df_html && !$('#grid-container').html().trim()) {
-                $('#grid-container').html(currentData.df_html);
-            }
-        });
+        const showLoader = (show) => { $('#loader').toggle(show); $('#table-container').toggle(!show); };
+        const enableTabs = (enable) => { $('#timcau-tab-btn, #lenmuc-tab-btn').toggleClass('disabled', !enable); };
 
         function fetchData(fetchType) {
             showLoader(true);
-            
-            // Reset tất cả các khu vực hiển thị
-            $('#table-container, #grid-container, #stats-results, #pattern-display').html('');
-            $('#stats-results').html('Chưa có thống kê.');
-            $('#month-selector-group').hide();
-
+            enableTabs(false);
             $.ajax({
-                url: `${API_BASE_URL}/fetch_data`,
-                type: 'POST', 
-                contentType: 'application/json',
+                url: `${API_BASE_URL}/fetch_data`, type: 'POST', contentType: 'application/json',
                 data: JSON.stringify({ type: fetchType }),
-                success: function(response) {
-                    if (response.success) {
-                        // Lưu lại tất cả dữ liệu cần thiết
-                        currentData.is_year_data = response.is_year_data;
-                        currentData.df_json = response.df_json;
-                        currentData.df_html = response.table_html; 
-                        currentData.column_names = response.columns;
+                success: function(res) {
+                    if (res.success) {
+                        currentData = { ...currentData, ...res };
+                        $('#table-container, #grid-container').html(res.table_html);
                         
-                        // Vẽ bảng kết quả ở cả hai nơi
-                        $('#table-container').html(response.table_html);
-                        $('#grid-container').html(response.table_html);
+                        let dayOptions = Array.from({length: res.rows}, (_, i) => `<option value="${i+1}">${i+1}</option>`).join('');
+                        $('#daySelector').html(dayOptions).val(res.rows);
                         
-                        // Tạo dropdown chọn ngày
-                        let dayOptions = '';
-                        for (let i = 1; i <= response.rows; i++) {
-                            dayOptions += `<option value="${i}">${i}</option>`;
+                        if (res.is_year_data) {
+                            $('#month-selector-group').show();
+                            let monthOptions = res.columns.filter(c => c.startsWith('TH')).map(c => `<option value="${c}">Tháng ${c.substring(2)}</option>`).join('');
+                            $('#monthSelector').html(monthOptions).val(`TH${new Date().getMonth() + 1}`);
+                        } else {
+                            $('#month-selector-group').hide();
                         }
-                        $('#daySelector').html(dayOptions).val(response.rows);
-                        
-                        // Nếu là dữ liệu năm, hiển thị dropdown chọn tháng
-                        if (response.is_year_data) {
-                            $('#month-selector-group').show(); 
-                            let monthOptions = '';
-                            response.columns.forEach((col) => {
-                               if(col.startsWith('TH')) {
-                                   monthOptions += `<option value="${col}">Tháng ${col.substring(2)}</option>`;
-                               }
-                            });
-                            const currentMonth = `TH${new Date().getMonth() + 1}`;
-                            $('#monthSelector').html(monthOptions).val(currentMonth);
-                        }
-                        
-                        enableTabs();
-                    } else { 
-                        alert('Lỗi: ' + response.message); 
-                    }
+                        enableTabs(true);
+                    } else { alert('Lỗi: ' + res.message); }
                 },
-                error: function(xhr, status, error) { 
-                    alert('Lỗi kết nối tới Backend API: ' + error); 
-                },
-                complete: function() { 
-                    showLoader(false); 
-                }
+                error: (xhr, status, error) => alert('Lỗi kết nối: ' + error),
+                complete: () => showLoader(false)
             });
         }
 
         $('#btnFetchMonth').on('click', () => fetchData('month'));
         $('#btnFetchYear').on('click', () => fetchData('year'));
 
-        // Hàm tô màu theo Mẫu
-        function highlightPatternsInGrid(patterns) {
-            const isExactMatch = $('#exactMatchCheck').is(':checked');
-            const $table = $('#grid-container table');
-            if (!$table.length) return;
-
-            $table.find('tbody tr').each(function() {
-                $(this).find('td').each(function(colIndex) {
-                    // Bỏ qua cột "Ngày"
-                    if (currentData.column_names[colIndex] === 'Ngày') return;
-                    
-                    const cellValue = $(this).text();
-                    
-                    // Xóa tất cả class highlight cũ
-                    $(this).removeClass('pattern-highlight-0 pattern-highlight-1 pattern-highlight-2 pattern-highlight-3 pattern-highlight-4 pattern-highlight-5');
-                    
-                    if (!cellValue) return;
-
-                    // Kiểm tra từng pattern (từ cuối lên để ưu tiên pattern mới nhất)
-                    for (let i = patterns.length - 1; i >= 0; i--) {
-                        const pattern = patterns[i];
-                        if (!pattern || pattern.length < 2) continue;
-                        
-                        let match = false;
-                        if (isExactMatch) {
-                            match = (cellValue.slice(-2) === pattern);
-                        } else {
-                            match = (cellValue.includes(pattern[0]) && cellValue.includes(pattern[1]));
-                        }
-                        
-                        if (match) { 
-                            $(this).addClass(`pattern-highlight-${i}`); 
-                            break; 
-                        }
-                    }
-                });
-            });
-        }
-
-        // Hàm chạy phân tích
-        function runAnalysis(step = null) {
-            if (!currentData.df_json) {
-                alert("Vui lòng lấy dữ liệu trước khi phân tích.");
-                return;
-            }
+        function runAnalysis() {
+            if (!currentData.df_json) { alert("Vui lòng lấy dữ liệu trước."); return; }
+            $('#stats-results').html('Đang phân tích...');
             
             const params = {
-                df_json: currentData.df_json, 
-                is_year_data: currentData.is_year_data,
-                num_patterns: parseInt($('#numPatterns').val()), 
-                day_idx: parseInt($('#daySelector').val()) - 1,
+                df_json: currentData.df_json, is_year_data: currentData.is_year_data,
+                num_patterns: parseInt($('#numPatterns').val()), day_idx: parseInt($('#daySelector').val()) - 1,
                 month_col: currentData.is_year_data ? $('#monthSelector').val() : null,
-                exact_match: $('#exactMatchCheck').is(':checked'), 
-                step: step
             };
-            
-            $('#stats-results').html('Đang phân tích...');
-            $('#grid-container').html(currentData.df_html); // Luôn vẽ lại bảng gốc
 
             $.ajax({
-                url: `${API_BASE_URL}/run_analysis`,
-                type: 'POST', 
-                contentType: 'application/json',
+                url: `${API_BASE_URL}/run_analysis`, type: 'POST', contentType: 'application/json',
                 data: JSON.stringify(params),
                 success: function(res) {
                     if (res.success) {
-                        // Hiển thị patterns
-                        let patternHTML = '';
-                        res.patterns.forEach((p, i) => {
-                            patternHTML += `<div class="pattern-box" style="background-color: ${colors[i % colors.length]};">
-                                <label class="form-label mb-0 small">Mẫu ${String.fromCharCode(97 + i)}</label>
-                                <input type="text" value="${p}" readonly>
-                            </div>`;
-                        });
-                        $('#pattern-display').html(patternHTML);
+                        currentData.dan_so_sets = res.dan_so_sets;
                         $('#stats-results').html(res.stats_html);
-
-                        // Khôi phục TÔ MÀU THEO MẪU
-                        highlightPatternsInGrid(res.patterns);
-
+                        
+                        let patternHTML = res.patterns.map((p, i) => `<div class="pattern-box" style="border-left: 5px solid ${colors[i % colors.length]}; padding-left: 8px;"> Mẫu ${String.fromCharCode(97 + i)} <input type="text" value="${p}" readonly></div>`).join('');
+                        $('#pattern-display').html(patternHTML);
+                        
+                        $('#grid-container').html(currentData.table_html); // Reset grid
                         const $table = $('#grid-container table');
+                        const highlightCell = (pos, className) => $table.find('tbody tr').eq(pos.row).find('td').eq(pos.col).addClass(className);
                         
-                        // FIX: Hàm tô màu cầu - Dùng pos.col trực tiếp (không phải pos.col_name)
-                        const highlightCell = (pos, className) => {
-                            if (typeof pos.col !== 'number') {
-                                console.error('Invalid pos.col:', pos);
-                                return;
-                            }
-                            
-                            // Tô màu trực tiếp bằng index
-                            $table.find('tbody tr').eq(pos.row).find('td').eq(pos.col).addClass(className);
-                        };
-
-                        // Tô màu các cầu tìm được
                         res.cau_positions.forEach(pos => highlightCell(pos, 'cau-highlight'));
-                        
-                        // Tô màu dự đoán
                         res.predict_positions.forEach(pos => highlightCell(pos, 'predict-highlight'));
                         
-                        // Nếu là phân tích auto, lưu dan_so_sets
-                        if (step === null) {
-                            currentData.dan_so_sets = res.dan_so_sets;
-                            populateLevelSelectionTab(); // Cập nhật Tab 3
-                        }
-                    } else { 
-                        alert('Lỗi phân tích: ' + res.message); 
-                    }
+                        res.patterns.forEach((p, i) => {
+                            if (!p) return;
+                            $table.find('td').filter(function() { return $(this).text().slice(-2) === p; }).addClass(`pattern-highlight-${i}`);
+                        });
+                        
+                        populateLevelSelectionTab();
+                    } else { alert('Lỗi phân tích: ' + res.message); }
                 },
-                error: function(xhr, status, error) { 
-                    alert('Lỗi kết nối khi phân tích: ' + error); 
-                }
+                error: (xhr, status, error) => alert('Lỗi kết nối phân tích: ' + error)
             });
         }
+        $('#btnRunAnalysisAuto, #daySelector, #monthSelector, #numPatterns').on('change click', runAnalysis);
 
-        $('#btnRunAnalysisAuto').on('click', () => runAnalysis(null));
-        $('.btn-run-step').on('click', function() { 
-            runAnalysis($(this).data('step')); 
-        });
-        
-        // Các hàm cho Tab 3: Lên Mức Số
         function populateLevelSelectionTab() {
-            const container = $('#level-selection-container');
-            container.html('');
-            
-            if (!currentData.dan_so_sets || 
-                currentData.dan_so_sets.length === 0 || 
-                currentData.dan_so_sets.every(s => s.length === 0)) {
+            const container = $('#level-selection-container').html('');
+            if (!currentData.dan_so_sets || currentData.dan_so_sets.every(s => s.length === 0)) {
                 container.html('<p class="text-muted">Không có dữ liệu mức số. Hãy chạy Phân Tích (Auto) trước.</p>');
                 return;
             }
             
             const directions = ["Từ trên xuống", "Từ dưới lên"];
-            
             currentData.dan_so_sets.forEach((set, index) => {
-                const dirIdx = Math.floor(index / 6);
-                const step = index % 6;
-                
-                // Gộp tất cả các cặp số
                 const allPairs = [].concat.apply([], set);
                 if (allPairs.length === 0) return;
                 
-                // Đếm tần suất
-                const freq = allPairs.reduce((acc, pair) => {
-                    acc[pair] = (acc[pair] || 0) + 1;
-                    return acc;
-                }, {});
-                
-                // Nhóm theo mức
+                const freq = allPairs.reduce((acc, pair) => ({...acc, [pair]: (acc[pair] || 0) + 1 }), {});
                 const levels = {};
-                for (const pair in freq) {
-                    const count = freq[pair];
-                    if (!levels[count]) levels[count] = [];
-                    levels[count].push(pair);
-                }
+                for (const pair in freq) { (levels[freq[pair]] = levels[freq[pair]] || []).push(pair); }
                 
-                // Tạo HTML
-                let content = `<div class="col-md-4 mb-3">
-                    <div class="card h-100">
-                        <div class="card-header">${directions[dirIdx]} - Cách ${step}</div>
-                        <div class="card-body" style="max-height: 200px; overflow-y: auto;">`;
+                const dirIdx = Math.floor(index / 6), step = index % 6;
+                let content = `<div class="col-md-4 mb-3"><div class="card h-100"><div class="card-header">${directions[dirIdx]} - Cách ${step}</div><div class="card-body" style="max-height: 200px; overflow-y: auto;">`;
                 
-                const sortedLevels = Object.keys(levels).sort((a, b) => b - a);
-                sortedLevels.forEach(level => {
+                Object.keys(levels).sort((a, b) => b - a).forEach(level => {
                     const pairs = levels[level].sort((a,b) => a - b);
-                    content += `<div class="form-check">
-                        <input class="form-check-input level-checkbox" type="checkbox" 
-                               value='${JSON.stringify(pairs)}' id="chk-${index}-${level}">
-                        <label class="form-check-label small" for="chk-${index}-${level}">
-                            <b>Mức ${level}</b> (${pairs.length} số): ${pairs.join(',')}
-                        </label>
-                    </div>`;
+                    content += `<div class="form-check"><input class="form-check-input level-checkbox" type="checkbox" value='${JSON.stringify(pairs)}' id="chk-${index}-${level}"><label class="form-check-label small" for="chk-${index}-${level}"><b>Mức ${level}</b> (${pairs.length} số): ${pairs.join(',')}</label></div>`;
                 });
-                
-                content += `</div></div></div>`;
-                container.append(content);
+                container.append(content + `</div></div></div>`);
             });
         }
         
         $('#btnCalculateFinal').on('click', function() {
             const allSelectedPairs = [];
+            $('.level-checkbox:checked').each(function() { allSelectedPairs.push(...JSON.parse($(this).val())); });
             
-            $('.level-checkbox:checked').each(function() { 
-                allSelectedPairs.push(...JSON.parse($(this).val())); 
-            });
+            if (allSelectedPairs.length === 0) { $('#final-levels-output').text('Chưa chọn mức nào.'); return; }
             
-            if (allSelectedPairs.length === 0) {
-                $('#final-levels-output').text('Chưa chọn mức nào.');
-                return;
-            }
-            
-            // Đếm tần suất
-            const freq = allSelectedPairs.reduce((acc, pair) => {
-                acc[pair] = (acc[pair] || 0) + 1;
-                return acc;
-            }, {});
-            
-            // Nhóm theo mức
+            const freq = allSelectedPairs.reduce((acc, pair) => ({...acc, [pair]: (acc[pair] || 0) + 1 }), {});
             const levels = {};
-            for (const pair in freq) {
-                const count = freq[pair];
-                if (!levels[count]) levels[count] = [];
-                levels[count].push(pair);
-            }
+            for (const pair in freq) { (levels[freq[pair]] = levels[freq[pair]] || []).push(pair); }
             
-            // Tạo output
             let output = '';
-            const sortedLevels = Object.keys(levels).sort((a, b) => b - a);
-            sortedLevels.forEach(level => {
+            Object.keys(levels).sort((a, b) => b - a).forEach(level => {
                 const pairs = levels[level].sort((a, b) => a - b);
                 output += `Mức ${level}: ${pairs.length} số: ${pairs.join(',')}\n`;
             });
-            
             $('#final-levels-output').text(output);
         });
         
         $('#btnCopyFinal').on('click', function() {
-            const text = $('#final-levels-output').text();
-            navigator.clipboard.writeText(text).then(
-                () => alert('Đã sao chép vào clipboard!'), 
-                (err) => alert('Lỗi khi sao chép: ' + err)
-            );
+            navigator.clipboard.writeText($('#final-levels-output').text()).then(() => alert('Đã sao chép!'), () => alert('Lỗi khi sao chép.'));
         });
     });
     </script>
