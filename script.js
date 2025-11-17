@@ -67,9 +67,12 @@ $(document).ready(function() {
                     res.cau_positions.forEach(pos => highlightCell(pos, 'cau-highlight'));
                     res.predict_positions.forEach(pos => highlightCell(pos, 'predict-highlight'));
                     
+                    // Highlight pattern occurrences separately to avoid overriding cau/predict colors
                     res.patterns.forEach((p, i) => {
                         if (!p) return;
-                        $table.find('td').filter(function() { return $(this).text().slice(-2) === p; }).addClass(`pattern-highlight-${i}`);
+                         $table.find('td').filter(function() { 
+                            return $(this).text().slice(-2) === p && !$(this).hasClass('cau-highlight') && !$(this).hasClass('predict-highlight'); 
+                        }).addClass(`pattern-highlight-${i}`);
                     });
                 } else { alert('Lỗi phân tích: ' + res.message); }
             },
@@ -87,7 +90,7 @@ $(document).ready(function() {
     function populateLevelSelectionTab() {
         const container = $('#level-selection-container').html('');
         if (!currentData.dan_so_sets || currentData.dan_so_sets.every(s => s.length === 0)) {
-            container.html('<p class="text-muted">Không có dữ liệu mức số. Hãy chạy Phân Tích (Auto) trước.</p>');
+            container.html('<div class="col-12"><p class="text-muted">Không có dữ liệu mức số. Hãy chạy Phân Tích (Auto) trước.</p></div>');
             return;
         }
         
