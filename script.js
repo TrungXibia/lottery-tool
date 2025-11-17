@@ -1,5 +1,6 @@
 $(document).ready(function() {
-    const API_BASE_URL = 'https://sieugacaukeo.onrender.com';
+    // ĐỔI URL API - Bỏ domain cũ vì giờ backend + frontend cùng domain
+    const API_BASE_URL = '';  // Để trống = dùng relative path
 
     let currentData = {
         df_html: '',
