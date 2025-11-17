@@ -1,0 +1,61 @@
+body {
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+    background-color: #f8f9fa;
+}
+
+.pattern-box input {
+    border: none;
+    background: transparent;
+    font-weight: bold;
+    width: 50px;
+    text-align: center;
+}
+
+.table-bordered th, .table-bordered td {
+    vertical-align: middle;
+    text-align: center;
+    font-weight: bold;
+}
+
+.cau-highlight {
+    background-color: #ffc107 !important; /* Vàng */
+    color: black;
+}
+
+.predict-highlight {
+    background-color: #dc3545 !important; /* Đỏ */
+    color: white;
+}
+
+.pattern-highlight-0 { background-color: #ffcccc; }
+.pattern-highlight-1 { background-color: #ccffcc; }
+.pattern-highlight-2 { background-color: #ccccff; }
+
+
+.nav-tabs .nav-link.disabled {
+    color: #adb5bd;
+}
+
+#loader {
+    display: none;
+    border: 8px solid #f3f3f3;
+    border-top: 8px solid #3498db;
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    animation: spin 1s linear infinite;
+    margin: 50px auto;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Style cho Tab 3 */
+#level-selection-container .card-body {
+    max-height: 200px;
+    overflow-y: auto;
+    font-size: 0.875rem;
+}
