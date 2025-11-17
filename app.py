@@ -146,12 +146,10 @@ def api_run_analysis():
     all_results, cau_positions, predict_positions = [], set(), set()
     dan_so_sets = [[] for _ in range(12)]
     
-    # === SỬA LỖI 1: LOGIC CHỌN CỘT ĐỂ QUÉT ===
     cols_to_scan = []
     if is_year_data:
         cols_to_scan = [c for c in df.columns if c.startswith('TH') and c not in pattern_months and c != selected_month_col]
     elif year_col in df.columns:
-        # Khi là dữ liệu tháng, chỉ quét cột của năm đó.
         cols_to_scan = [year_col]
 
     for dir_idx, inside in enumerate([True, False]):
@@ -171,7 +169,6 @@ def api_run_analysis():
                         if not match_func(v, patterns[k]):
                             ok = False
                             break
-                        # === SỬA LỖI 2: TRẢ VỀ 'col_name' THAY VÌ 'col' ===
                         pos.append({'row': check_row, 'col_name': col_name})
 
                     if ok:
@@ -182,7 +179,6 @@ def api_run_analysis():
                             pv = df.iloc[predict_idx][col_name]
                             if pv:
                                 result_nums.append(pv)
-                                # === SỬA LỖI 2: TRẢ VỀ 'col_name' THAY VÌ 'col' ===
                                 predict_positions.add(json.dumps({'row': predict_idx, 'col_name': col_name}))
 
             idx = dir_idx * 6 + step
@@ -200,5 +196,4 @@ def api_run_analysis():
     })
 
 if __name__ == '__main__':
-    # Port và host sẽ do Gunicorn/Railway quản lý, không cần chỉ định ở đây
-    app.run(debug=True)s
+    app.run(debug=True)
