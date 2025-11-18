@@ -10,6 +10,7 @@ $(document).ready(function() {
         dan_so_sets: []
     };
     const colors = ['#ffcccc', '#ccffcc', '#ccccff', '#ffcc99', '#99ccff', '#ff99cc'];
+    const all_highlight_classes = ['pattern-highlight-0', 'pattern-highlight-1', 'pattern-highlight-2', 'pattern-highlight-3', 'pattern-highlight-4', 'pattern-highlight-5', 'cau-highlight', 'predict-highlight'];
 
     function showLoader(show) { $('#loader').toggle(show); $('#table-container').toggle(!show); }
     function enableTabs() { $('#timcau-tab, #lenmuc-tab').prop('disabled', false); }
@@ -72,53 +73,23 @@ $(document).ready(function() {
     $('#btnFetchMonth').on('click', () => fetchData('month'));
     $('#btnFetchYear').on('click', () => fetchData('year'));
 
-    // ADDED: Thêm các event listener để tự động cập nhật pattern khi thay đổi lựa chọn
-    $('#daySelector, #numPatterns, #monthSelector, #exactMatchCheck').on('change', function() {
-        // Chỉ chạy nếu đã có dữ liệu và không phải là lúc đang tải
+    // Hàm chỉ chạy phân tích đầy đủ (null) khi các input điều khiển thay đổi
+    // Để đảm bảo pattern và thống kê luôn cập nhật
+    function updatePatternAndRunAnalysis() {
         if (currentData.df_json && !$('#loader').is(':visible')) {
-            // Chạy phân tích đầy đủ (null) để cập nhật pattern display và thống kê
             runAnalysis(null); 
         }
-    });
-    // END ADDED
-
-    // Hàm tô màu theo Mẫu (đã khôi phục)
-    function highlightPatternsInGrid(patterns) {
-        const isExactMatch = $('#exactMatchCheck').is(':checked');
-        const $table = $('#grid-container table');
-        if (!$table.length) return;
-
-        $table.find('tbody tr').each(function() {
-            $(this).find('td').each(function(colIndex) {
-                // Không tô màu cột Ngày hoặc các cột không phải dữ liệu (nếu có)
-                if (currentData.column_names[colIndex] === 'Ngày' || !currentData.column_names[colIndex].startsWith('TH') && currentData.column_names[colIndex] !== currentData.column_names[1]) return;
-                
-                const cellValue = $(this).text();
-                // Xóa tất cả các highlight liên quan đến pattern
-                for(let i=0; i<6; i++) {
-                    $(this).removeClass(`pattern-highlight-${i}`);
-                }
-                
-                if (!cellValue) return;
-
-                // Tô màu khớp Mẫu toàn cục (Global Match Highlight)
-                for (let i = patterns.length - 1; i >= 0; i--) {
-                    const pattern = patterns[i];
-                    if (!pattern || pattern.length < 2) continue;
-                    let match = isExactMatch ? (cellValue.slice(-2) === pattern) : (cellValue.includes(pattern[0]) && cellValue.includes(pattern[1]));
-                    if (match) { 
-                        $(this).addClass(`pattern-highlight-${i}`); 
-                        break; 
-                    }
-                }
-            });
-        });
     }
 
-    // Hàm chạy phân tích (đã sửa lỗi)
+    // Gán sự kiện cho các control để tự động cập nhật
+    $('#daySelector, #numPatterns, #monthSelector, #exactMatchCheck').on('change', updatePatternAndRunAnalysis);
+    
+    // Hàm tô màu theo Mẫu (Đã bị loại bỏ để chỉ tô màu các ô MẪU GỐC, CẦU, DỰ ĐOÁN)
+    // function highlightPatternsInGrid(patterns) { /* ... (logic cũ) ... */ }
+
+    // Hàm chạy phân tích (Đã sửa logic tô màu)
     function runAnalysis(step = null) {
         if (!currentData.df_json) {
-            // alert("Vui lòng lấy dữ liệu trước khi phân tích."); // Bỏ alert, chỉ cần kiểm tra
             return;
         }
         const params = {
@@ -129,7 +100,14 @@ $(document).ready(function() {
         };
         
         $('#stats-results').html('Đang phân tích...');
-        $('#grid-container').html(currentData.df_html); // Luôn vẽ lại bảng gốc
+        
+        // Luôn vẽ lại bảng gốc và xóa tất cả highlight cũ
+        $('#grid-container').html(currentData.df_html); 
+        const $table = $('#grid-container table');
+        $table.find('td').each(function() {
+            $(this).removeClass(all_highlight_classes.join(' ')).css('border', '1px solid #dee2e6');
+        });
+
 
         $.ajax({
             url: `${API_BASE_URL}/run_analysis`,
@@ -144,31 +122,29 @@ $(document).ready(function() {
                     $('#pattern-display').html(patternHTML);
                     $('#stats-results').html(res.stats_html);
 
-                    // Khôi phục TÔ MÀU THEO MẪU (Global match)
-                    highlightPatternsInGrid(res.patterns);
-
-                    const $table = $('#grid-container table');
                     
                     const highlightCell = (pos, className) => {
-                        // Logic tô màu cầu (đã sửa)
                         const colIndex = currentData.column_names.indexOf(pos.col_name);
                         if (colIndex !== -1) {
                             $table.find('tbody tr').eq(pos.row).find('td').eq(colIndex).addClass(className);
                         }
                     };
 
-                    // ADDED: Logic tô màu các ô được dùng làm MẪU
+                    // BƯỚC 1: TÔ MÀU VÀ LÀM NỔI BẬT CÁC Ô ĐƯỢC DÙNG LÀM MẪU (pattern_positions)
                     if (res.pattern_positions) {
                         res.pattern_positions.forEach((pos, i) => {
                             const colIndex = currentData.column_names.indexOf(pos.col_name);
                             if (colIndex !== -1) {
-                                // Sử dụng class pattern-highlight-i tương ứng với màu pattern display
+                                // Tô màu theo pattern index (i) và thêm viền
                                 $table.find('tbody tr').eq(pos.row).find('td').eq(colIndex).addClass(`pattern-highlight-${i}`).css('border', '2px solid black');
                             }
                         });
                     }
-
+                    
+                    // BƯỚC 2: TÔ MÀU CẦU ĐƯỢC TÌM THẤY
                     res.cau_positions.forEach(pos => highlightCell(pos, 'cau-highlight'));
+                    
+                    // BƯỚC 3: TÔ MÀU DỰ ĐOÁN
                     res.predict_positions.forEach(pos => highlightCell(pos, 'predict-highlight'));
                     
                     if (step === null) {
@@ -181,7 +157,8 @@ $(document).ready(function() {
         });
     }
 
-    $('#btnRunAnalysisAuto').on('click', () => runAnalysis(null));
+    // Nút chạy chính (dù nút mới không có trong file gốc, vẫn gán sự kiện)
+    $('#btnRunAnalysisAuto, #btnRunAnalysisPrimary').on('click', () => runAnalysis(null)); 
     $('.btn-run-step').on('click', function() { runAnalysis($(this).data('step')); });
     
     // Các hàm cho Tab 3 (đã hoạt động)
