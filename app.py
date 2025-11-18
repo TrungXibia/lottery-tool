@@ -55,6 +55,7 @@ def api_run_analysis():
     selected_month_col = data.get('month_col')
     
     patterns, pattern_months = [], set()
+    pattern_positions = [] # ADDED: List để lưu vị trí các ô được dùng làm mẫu
     year_col = str(datetime.now().year)
 
     if is_year_data:
@@ -66,6 +67,8 @@ def api_run_analysis():
             else:
                 pat = df.iloc[p_day][p_col]
                 pattern_months.add(p_col)
+                # ADDED: Lưu vị trí mẫu (từ mới nhất -> cũ nhất)
+                pattern_positions.append({'row': p_day, 'col_name': p_col})
             patterns.append(pat[-2:] if isinstance(pat, str) and len(pat) >= 2 else '')
             cur_day, cur_col = (p_day, p_col)
     else:
@@ -74,8 +77,16 @@ def api_run_analysis():
         for offset in range(1, num_patterns + 1):
             idx = row_idx - offset
             pat = df.iloc[idx][year_col] if idx >= 0 and year_col in df.columns else ''
+            
+            # ADDED: Lưu vị trí mẫu (từ mới nhất -> cũ nhất)
+            if idx >= 0:
+                pattern_positions.append({'row': idx, 'col_name': year_col}) 
+                
             patterns.append(pat[-2:] if isinstance(pat, str) and len(pat) >= 2 else '')
+            
     patterns.reverse()
+    # ADDED: Đảo ngược vị trí để khớp thứ tự mẫu (cũ nhất -> mới nhất)
+    pattern_positions.reverse()
     
     match_func = matches_last_two_digits if exact_match else contains_two_digits
     
@@ -131,7 +142,8 @@ def api_run_analysis():
         'success': True, 'patterns': patterns, 'stats_html': '<hr>'.join(all_results),
         'cau_positions': [json.loads(p) for p in cau_positions],
         'predict_positions': [json.loads(p) for p in predict_positions],
-        'dan_so_sets': dan_so_sets
+        'dan_so_sets': dan_so_sets,
+        'pattern_positions': pattern_positions # ADDED: Trả về vị trí các ô được dùng làm mẫu
     })
 
 # --- CÁC HÀM HỖ TRỢ (ĐÃ VIẾT TÁCH DÒNG ĐỂ TRÁNH LỖI INDENT) ---
